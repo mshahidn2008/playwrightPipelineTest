@@ -2,52 +2,26 @@ pipeline:
   agent: any
 
   environment:
-    NODE_ENV: 'test'
-    CI: '1'
+    CI: "true"
 
   options:
     - "timeout(time: 30, unit: 'MINUTES')"
     - "timestamps()"
-    - "skipDefaultCheckout(true)"
-
-  parameters:
-    - "choice(name: 'TEST_SUITE', choices: ['test:e2e', 'test:master', 'test:sanity', 'test:regression', 'test:api', 'test:web', 'test:datadriven'], description: 'Select the test suite to run')"
-    - "choice(name: 'BROWSER', choices: ['chromium', 'firefox', 'webkit'], description: 'Select the browser for tests')"
-    - "choice(name: 'MODE', choices: ['headless', 'headed'], description: 'Select the browser mode')"
 
   stages:
-    - stage: 'Checkout'
+    - stage: "Install dependencies"
       steps:
-        - 'checkout scm'
-
-    - stage: 'Install dependencies'
-      steps:
-        - "powershell 'npm ci'"
-
-    - stage: 'Install Playwright browsers'
-      steps:
-        - "powershell 'npx playwright install'"
+        - sh "npm ci"
 
     - stage: 'Prepare environment'
       steps:
-        - >-
-          powershell 'if ((Test-Path .env.example) -and !(Test-Path .env)) { Copy-Item .env.example .env }'
+        - sh "npx playwright install --with-deps"
 
     - stage: 'Run Playwright tests'
       steps:
-        - >-
-          powershell '''
-          $arguments = @('run', $env:TEST_SUITE, '--', "--project=$env:BROWSER")
-          if ($env:MODE -eq 'headed') { $arguments += '--headed' }
-          & npm @arguments
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          '''
+        - sh "npx playwright test"
 
   post:
     always:
-      - "archiveArtifacts artifacts: 'playwright-report/**,test-results/**,reports/**,custom-report/**,allure-results/**', allowEmptyArchive: true"
-      - "junit testResults: 'reports/results.xml', allowEmptyResults: true"
-      - "allure includeProperties: false, results: [[path: 'allure-results']]"
-      - "publishHTML([allowMissing: true, alwaysLinkToLastBuild: true, keepAll: true, reportDir: 'reports', reportFiles: 'index.html', reportName: 'Playwright HTML Report'])"
-      - "publishHTML([allowMissing: true, alwaysLinkToLastBuild: true, keepAll: true, reportDir: 'custom-report', reportFiles: 'index.html', reportName: 'Custom Test Report'])"
-      - "publishHTML([allowMissing: true, alwaysLinkToLastBuild: true, keepAll: true, reportDir: 'playwright-report', reportFiles: 'index.html', reportName: 'Default Playwright HTML Report'])"
+      - "archiveArtifacts artifacts: 'playwright-report/**/*', allowEmptyArchive: true"
+      - "archiveArtifacts artifacts: 'test-results/**/*', allowEmptyArchive: true"
