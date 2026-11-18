@@ -2,26 +2,51 @@ pipeline:
   agent: any
 
   environment:
-    CI: "true"
+    NODE_ENV: "test"
+    CI: "1"
 
   options:
     - "timeout(time: 30, unit: 'MINUTES')"
     - "timestamps()"
+    - "skipDefaultCheckout(true)"
+
+  parameters:
+    - "choice(name: 'BROWSER', choices: ['all', 'chromium', 'firefox', 'webkit'], description: 'Select the browser for tests')"
+    - "choice(name: 'MODE', choices: ['headless', 'headed'], description: 'Select the browser mode')"
 
   stages:
+    - stage: "Checkout"
+      steps:
+        - "checkout scm"
+
     - stage: "Install dependencies"
       steps:
         - sh "npm ci"
 
-    - stage: 'Prepare environment'
+    - stage: "Install Playwright browsers"
       steps:
-        - sh "npx playwright install --with-deps"
+        - sh "npm exec -- playwright install --with-deps"
 
-    - stage: 'Run Playwright tests'
+    - stage: "Run Playwright tests"
       steps:
-        - sh "npx playwright test"
+        - >-
+          script:
+            - |
+              if (env.BROWSER == 'all') {
+                  if (env.MODE == 'headed') {
+                      sh 'npm exec -- playwright test --headed'
+                  } else {
+                      sh 'npm exec -- playwright test'
+                  }
+              } else {
+                  if (env.MODE == 'headed') {
+                      sh "npm exec -- playwright test --project=${env.BROWSER} --headed"
+                  } else {
+                      sh "npm exec -- playwright test --project=${env.BROWSER}"
+                  }
+              }
 
   post:
     always:
-      - "archiveArtifacts artifacts: 'playwright-report/**/*', allowEmptyArchive: true"
-      - "archiveArtifacts artifacts: 'test-results/**/*', allowEmptyArchive: true"
+      - "archiveArtifacts artifacts: 'playwright-report/**,test-results/**', allowEmptyArchive: true"
+      - "publishHTML([allowMissing: true, alwaysLinkToLastBuild: true, keepAll: true, reportDir: 'playwright-report', reportFiles: 'index.html', reportName: 'Default Playwright HTML Report'])"
