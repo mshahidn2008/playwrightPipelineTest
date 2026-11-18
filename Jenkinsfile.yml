@@ -21,30 +21,18 @@ pipeline:
 
     - stage: "Install dependencies"
       steps:
-        - sh "npm ci"
+        - "bat 'npm ci'"
 
     - stage: "Install Playwright browsers"
       steps:
-        - sh "npm exec -- playwright install --with-deps"
+        - "bat 'npx playwright install'"
 
     - stage: "Run Playwright tests"
       steps:
-        - >-
-          script:
-            - |
-              if (env.BROWSER == 'all') {
-                  if (env.MODE == 'headed') {
-                      sh 'npm exec -- playwright test --headed'
-                  } else {
-                      sh 'npm exec -- playwright test'
-                  }
-              } else {
-                  if (env.MODE == 'headed') {
-                      sh "npm exec -- playwright test --project=${env.BROWSER} --headed"
-                  } else {
-                      sh "npm exec -- playwright test --project=${env.BROWSER}"
-                  }
-              }
+        script: |
+          def browserFlag = params.BROWSER == 'all' ? '' : "--project=${params.BROWSER}"
+          def modeFlag = params.MODE == 'headed' ? '--headed' : ''
+          bat "npx playwright test ${browserFlag} ${modeFlag}"
 
   post:
     always:
