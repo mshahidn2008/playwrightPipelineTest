@@ -50,6 +50,8 @@ pipeline {
     post {
         always {
             archiveArtifacts artifacts: 'playwright-report/**,test-results/**', allowEmptyArchive: true
+            junit testResults: 'reports/results.xml', allowEmptyResults: true
+            allure includeProperties: false, results: [[path: 'allure-results']]
             publishHTML([
                 allowMissing: true,
                 alwaysLinkToLastBuild: true,
